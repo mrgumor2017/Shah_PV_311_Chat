@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Configuration;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -21,48 +22,53 @@ namespace ClientAppChat
     public partial class MainWindow : Window
     {
         IPEndPoint serverEndPoint;
-        UdpClient udpClient;
+        TcpClient tcpClient;
+        NetworkStream ns = null;
+        StreamWriter writer = null;
+        StreamReader reader = null;
         ObservableCollection<MessageInfo> messages = new ObservableCollection<MessageInfo>();
         public MainWindow()
         {
             InitializeComponent();
             this.DataContext = messages;
-            udpClient = new UdpClient();
+            tcpClient = new TcpClient();
             string address = ConfigurationManager.AppSettings["serverAddres"]!;
             short port = short.Parse(ConfigurationManager.AppSettings["serverPort"]!);
 
             serverEndPoint = new IPEndPoint(IPAddress.Parse(address), port);
         }
 
-        private void Leave_Button_click(object sender, RoutedEventArgs e)
+        private void Disconnect_Button_click(object sender, RoutedEventArgs e)
         {
-            string message = "$<leave>";
-            SendMessage(message);
+            ns.Close();
+            tcpClient.Close();
         }
 
-        private void Join_Button_click(object sender, RoutedEventArgs e)
+        private void Connect_Button_click(object sender, RoutedEventArgs e)
         {
-            string nickname = Nickname.Text;
-            if (string.IsNullOrWhiteSpace(nickname))
+            //string nickname = Nickname.Text;
+            try
             {
-                MessageBox.Show("Введіть нікнейм.");
-            }
-            else
-            {
-                string message = $"$<join>{nickname}";
-                SendMessage(message);
+                tcpClient.Connect(serverEndPoint);
+                ns = tcpClient.GetStream();
+                writer = new StreamWriter(ns);
+                reader = new StreamReader(ns);
                 Listen();
             }
-            
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void Send_Button_click(object sender, RoutedEventArgs e)
         {
-           
+            
             string message = Msg_text.Text;
             if (!string.IsNullOrWhiteSpace(message))
             {
-                SendMessage(message);
+                writer.WriteLine(message);
+                writer.Flush();
             }
             else
             {
@@ -70,21 +76,14 @@ namespace ClientAppChat
             }
             
             Msg_text.Clear();
-            
-        }
-
-        private async void SendMessage(string message)
-        {
-            byte[] data = Encoding.UTF8.GetBytes(message);
-            await udpClient.SendAsync(data, serverEndPoint);
         }
 
         private async void Listen()
         {
+            
             while (true)
             {
-                var data = await udpClient.ReceiveAsync();
-                string message = Encoding.UTF8.GetString(data.Buffer);
+                string? message = await reader.ReadLineAsync();
                 messages.Add(new MessageInfo(message, DateTime.Now));
             }
         }
