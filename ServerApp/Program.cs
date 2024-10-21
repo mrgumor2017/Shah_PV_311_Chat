@@ -7,25 +7,32 @@ namespace ServerApp
     class ServerChat
     {
         const short port = 4040;
-        const string JOIN_CMD = "$<join>";
+        const int MaxMembers = 5;  
         UdpClient server;
-        List<IPEndPoint> members;
         IPEndPoint clientendpoint = null;
         Dictionary<IPEndPoint, string> membersWithNicknames = new Dictionary<IPEndPoint, string>();
 
         public ServerChat()
         {
             server = new UdpClient(port);
-            members = new List<IPEndPoint>();
         }
+
         private void AddMember(string nickname)
         {
-            if (!membersWithNicknames.ContainsKey(clientendpoint))
+            if (membersWithNicknames.Count >= MaxMembers)
+            {
+                string fullMessage = "Server is full. Cannot join.";
+                byte[] data = Encoding.UTF8.GetBytes(fullMessage);
+                server.SendAsync(data, data.Length, clientendpoint);
+                Console.WriteLine("Failed to add member, server is full: " + clientendpoint);
+            }
+            else if (!membersWithNicknames.ContainsKey(clientendpoint))
             {
                 membersWithNicknames.Add(clientendpoint, nickname);
                 Console.WriteLine($"Member added: {nickname} from {clientendpoint}");
             }
         }
+
         private void SendToAll(byte[] data)
         {
             foreach (IPEndPoint p in membersWithNicknames.Keys)
@@ -55,7 +62,7 @@ namespace ServerApp
 
                 if (message.StartsWith("$<join>"))
                 {
-                    string nickname = message.Substring(7); 
+                    string nickname = message.Substring(7);
                     AddMember(nickname);
                 }
                 else if (message == "$<leave>")
@@ -74,13 +81,13 @@ namespace ServerApp
         }
 
     }
+
     internal class Program
     {
         static void Main(string[] args)
         {
             ServerChat serverChat = new ServerChat();
             serverChat.Start();
-            
         }
     }
 }
