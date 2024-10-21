@@ -36,12 +36,14 @@ namespace ServerApp
 
         private void RemoveMember()
         {
-            if (members.Contains(clientendpoint))
+            if (membersWithNicknames.ContainsKey(clientendpoint))
             {
-                members.Remove(clientendpoint);
-                Console.WriteLine("Member removed: " + clientendpoint);
+                string nickname = membersWithNicknames[clientendpoint];
+                membersWithNicknames.Remove(clientendpoint);
+                Console.WriteLine($"Member removed: {nickname} from {clientendpoint}");
             }
         }
+
         public void Start()
         {
             Console.WriteLine("Server started...");
